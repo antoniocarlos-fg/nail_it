@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "968418835466",
+    "project_id": "nail-it-5bcb4",
+    "storage_bucket": "nail-it-5bcb4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:968418835466:android:f335c29213619864efb3f3",
+        "android_client_info": {
+          "package_name": "com.example.nailit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVbJrMlZbSYoTSONcrA5J9T0qlqbo2-QM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
