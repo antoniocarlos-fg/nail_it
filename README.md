@@ -1,43 +1,53 @@
 # Nail It!
 
-Aplicativo mobile para organizar e acompanhar uma coleção pessoal de esmaltes, desenvolvido com **Flutter** e **Dart** como projeto acadêmico.
+Aplicativo desenvolvido com **Flutter** e **Dart** para organizar e acompanhar uma coleção pessoal de esmaltes, com autenticação e persistência em nuvem via **Google Firebase**.
+
+> 🇬🇧 *An app built with **Flutter** and **Dart** to organize and track a personal nail polish collection, featuring authentication and cloud persistence powered by **Google Firebase**. Please note that the app and documentation are written in Portuguese for academic purposes.*
+
+> **Versão Web:** [nail-it-5bcb4.web.app](https://nail-it-5bcb4.web.app)
 
 ## Sobre
 
-O Nail It! ajuda quem gosta de esmaltes a consultar um catálogo, controlar os itens da própria coleção, acompanhar o estado de uso e manter uma lista de desejos.
+O **Nail It!** ajuda quem gosta de esmaltes a pesquisar produtos reais, cadastrar itens personalizados, controlar o estoque da própria coleção, acompanhar o estado de uso e manter uma lista de desejos sincronizada na nuvem.
 
 ## Funcionalidades
 
-- Cadastro e login de usuários.
-- Consulta de recuperação de senha: valida o formato do e-mail e verifica se há uma conta correspondente. O envio de instruções e a redefinição da senha ainda não estão disponíveis, pois dependem de um back-end.
-- Pesquisa do catálogo por nome ou marca e cadastro manual de esmaltes.
-- Adição de esmaltes ao estoque pessoal, com opção de alterar o estado de uso ou remover itens.
-- Wishlist de esmaltes.
-- Perfil com visualização e atualização dos dados do usuário.
-- Tela com informações sobre o projeto e a equipe.
+- **Autenticação e Conta (Firebase Auth):**
+  - Cadastro de novos usuários com e-mail e senha.
+  - Login com feedback de carregamento e tratamento de erros.
+  - Recuperação e redefinição de senha via envio de e-mail.
+- **Pesquisa e Catálogo:**
+  - Busca de esmaltes reais integrada à **API da VTEX (Ikesaki)** via HTTP.
+  - Cadastro manual de esmaltes no catálogo pessoal do usuário.
+- **Estoque Pessoal:**
+  - Adição de esmaltes ao inventário.
+  - Acompanhamento e alteração do estado de uso: **Novo**, **Usando** e **Acabando**.
+  - Busca local e remoção de itens do estoque.
+- **Wishlist:**
+  - Lista de desejos vinculada ao usuário.
+- **Perfil e Informações:**
+  - Visualização e atualização dos dados cadastrais do usuário no Cloud Firestore.
+  - Tela com informações sobre o projeto e a equipe.
 
-Os estados de uso disponíveis são **Novo**, **Usando** e **Acabando**.
+## Persistência e Segurança
 
-### Armazenamento nesta etapa
+Os dados são armazenados no **Cloud Firestore** em tempo real (`StreamBuilder`) e isolados por usuário autenticado (`uid`), distribuídos nas coleções:
 
-A manutenção local dos dados é temporária: contas, alterações no catálogo, estoques e wishlist ficam somente na memória durante a execução do aplicativo. Os dados são perdidos ao fechar o app. Uma etapa futura poderá adicionar persistência adequada.
+- `usuarios` — dados cadastrais do perfil.
+- `estoque` — itens da coleção pessoal e seus estados de uso.
+- `wishlist` — lista de desejos do usuário.
+- `catalogo_pessoal` — esmaltes cadastrados manualmente pelo usuário.
 
-### Próximos passos
-
-- Integrar a pesquisa à [API do Mercado Livre](https://developers.mercadolivre.com.br/), para consultar esmaltes e permitir adicioná-los ao estoque ou à wishlist.
-- Implementar recuperação e redefinição de senha com suporte de um back-end.
-- Persistir os dados entre execuções do aplicativo.
-
-## Desenvolvedores
-
-- [Daniel Santana](https://github.com/daniel-zip)
-- [Antonio Carlos](https://github.com/antoniocarlos-fg)
+O acesso às coleções é protegido por **Firestore Security Rules**, garantindo que cada usuário leia e modifique apenas os próprios documentos.
 
 ## Tecnologias
 
-- [Flutter](https://flutter.dev/) e Dart.
-- Provider e `ChangeNotifier` para gerenciamento de estado.
-- Material Design para os componentes da interface.
+- [Flutter](https://flutter.dev/) e Dart
+- [Firebase Authentication](https://firebase.google.com/docs/auth), [Cloud Firestore](https://firebase.google.com/docs/firestore) e [Firebase Hosting](https://firebase.google.com/docs/hosting)
+- [Provider](https://pub.dev/packages/provider) (`ChangeNotifier`) para gerenciamento de estado
+- [http](https://pub.dev/packages/http) para integração com a API da VTEX
+- [get_it](https://pub.dev/packages/get_it)
+- Material Design
 
 ## Executar o projeto
 
@@ -50,10 +60,21 @@ flutter pub get
 flutter run
 ```
 
+Para gerar o build Web:
+
+```bash
+flutter build web
+```
+
+## Desenvolvedores
+
+- [Daniel Santana](https://github.com/daniel-zip)
+- [Antonio Carlos](https://github.com/antoniocarlos-fg)
+
 ## Contexto acadêmico
 
-Projeto prático da disciplina de **Programação para Dispositivos Móveis**, do curso de Tecnologia em Análise e Desenvolvimento de Sistemas da Fatec Ribeirão Preto.
+Projeto prático da disciplina de **Programação para Dispositivos Móveis**, do curso de Tecnologia em Análise e Desenvolvimento de Sistemas da **Fatec Ribeirão Preto**.
 
 ## Licença
 
-Este projeto tem finalidade acadêmica e educacional.
+Este projeto está licenciado sob a **Licença MIT** — consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
