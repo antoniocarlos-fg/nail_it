@@ -13,6 +13,7 @@ import 'package:nail_it/views/navegacao/menu_principal_view.dart';
 import 'package:nail_it/views/perfil/alterar_informacoes_view.dart';
 import 'package:nail_it/views/sobre/sobre_view.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +29,10 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
         ChangeNotifierProvider(create: (_) => CatalogoProvider()),
       ],
-      child: DevicePreview(builder: (context) => const MainApp()),
+      child: DevicePreview(
+        enabled: !kReleaseMode,
+        builder: (context) => const MainApp()
+      ),
     ),
   );
 }
