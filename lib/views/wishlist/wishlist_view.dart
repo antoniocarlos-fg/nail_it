@@ -5,6 +5,7 @@ import 'package:nail_it/models/esmalte.dart';
 import 'package:nail_it/providers/wishlist_provider.dart';
 import 'package:nail_it/repositories/usuario_repository.dart';
 import 'package:nail_it/views/produto/produto_view.dart';
+import 'package:nail_it/widgets/esmalte_imagem.dart';
 
 class WishlistView extends StatefulWidget {
   const WishlistView({super.key});
@@ -144,10 +145,16 @@ class _WishlistViewState extends State<WishlistView> {
                                   ),
                                 );
                               },
-                              leading: Icon(
-                                Icons.brush,
-                                color: Colors.red[900],
-                                size: 36,
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: EsmalteImagem(
+                                    imagemUrl: esmalte.imagemUrl,
+                                    iconSize: 30,
+                                  ),
+                                ),
                               ),
                               title: Text(
                                 esmalte.nome,

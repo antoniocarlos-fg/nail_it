@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:nail_it/models/esmalte.dart';
 import 'package:nail_it/providers/esmaltes_provider.dart';
+import 'package:nail_it/widgets/esmalte_imagem.dart';
 
 class EstoqueDetalheView extends StatefulWidget {
   final Esmalte esmalte;
@@ -88,14 +89,18 @@ class _EstoqueDetalheViewState extends State<EstoqueDetalheView> {
             children: [
               Card(
                 elevation: 2,
+                color: Colors.white,
+                clipBehavior: Clip.antiAlias,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                   side: BorderSide(color: Colors.red[900]!, width: 2),
                 ),
                 child: SizedBox(
                   height: 200,
-                  child: Center(
-                    child: Icon(Icons.brush, size: 96, color: Colors.red[900]),
+                  child: EsmalteImagem(
+                    imagemUrl: widget.esmalte.imagemUrl,
+                    iconSize: 96,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),

@@ -5,6 +5,7 @@ import 'package:nail_it/models/esmalte.dart';
 import 'package:nail_it/providers/esmaltes_provider.dart';
 import 'package:nail_it/repositories/usuario_repository.dart';
 import 'package:nail_it/views/estoque/estoque_detalhe_view.dart';
+import 'package:nail_it/widgets/esmalte_imagem.dart';
 
 class InicioView extends StatefulWidget {
   const InicioView({super.key});
@@ -118,7 +119,7 @@ class _InicioViewState extends State<InicioView> {
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          childAspectRatio: 0.8,
+                          childAspectRatio: 0.78,
                         ),
                         itemCount: resultadosFiltrados.length,
                         itemBuilder: (context, index) {
@@ -139,6 +140,7 @@ class _InicioViewState extends State<InicioView> {
                                 Expanded(
                                   child: Card(
                                     elevation: 2,
+                                    color: Colors.white,
                                     clipBehavior: Clip.antiAlias,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
@@ -147,12 +149,8 @@ class _InicioViewState extends State<InicioView> {
                                         width: 2,
                                       ),
                                     ),
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.brush,
-                                        size: 48,
-                                        color: Colors.red[900],
-                                      ),
+                                    child: EsmalteImagem(
+                                      imagemUrl: esmalte.imagemUrl,
                                     ),
                                   ),
                                 ),
@@ -162,6 +160,8 @@ class _InicioViewState extends State<InicioView> {
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
                                   esmalte.status,
@@ -169,6 +169,8 @@ class _InicioViewState extends State<InicioView> {
                                     fontSize: 12,
                                     color: Colors.grey[700],
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),

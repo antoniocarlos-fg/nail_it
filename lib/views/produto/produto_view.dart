@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:nail_it/models/esmalte.dart';
+import 'package:nail_it/providers/catalogo_provider.dart';
 import 'package:nail_it/providers/esmaltes_provider.dart';
 import 'package:nail_it/providers/wishlist_provider.dart';
+import 'package:nail_it/widgets/esmalte_imagem.dart';
 
 class ProdutoView extends StatefulWidget {
   final Esmalte esmalte;
+  final bool ehCatalogoPessoal;
 
-  const ProdutoView({super.key, required this.esmalte});
+  const ProdutoView({
+    super.key,
+    required this.esmalte,
+    this.ehCatalogoPessoal = false,
+  });
 
   @override
   State<ProdutoView> createState() => _ProdutoViewState();
@@ -112,6 +119,46 @@ class _ProdutoViewState extends State<ProdutoView> {
     }
   }
 
+  Future<void> _excluirDoCatalogoPessoal() async {
+    if (_salvando) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir esmalte'),
+        content: Text(
+          'Deseja excluir "${widget.esmalte.nome}" do seu catálogo pessoal?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancelar', style: TextStyle(color: Colors.grey[700])),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+    setState(() => _salvando = true);
+
+    try {
+      await context.read<CatalogoProvider>().removerEsmaltePessoal(widget.esmalte);
+      if (!mounted) return;
+      _avisar('${widget.esmalte.nome} excluído do catálogo pessoal.');
+      Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        _avisar('Erro ao excluir do catálogo pessoal.', erro: true);
+      }
+    } finally {
+      if (mounted) setState(() => _salvando = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final taNaWishlist = context.watch<WishlistProvider>().possui(widget.esmalte);
@@ -122,6 +169,14 @@ class _ProdutoViewState extends State<ProdutoView> {
         backgroundColor: Colors.red[900],
         foregroundColor: Colors.white,
         title: const Text('Detalhes do esmalte'),
+        actions: [
+          if (widget.ehCatalogoPessoal)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Excluir do catálogo pessoal',
+              onPressed: _salvando ? null : _excluirDoCatalogoPessoal,
+            ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -131,14 +186,18 @@ class _ProdutoViewState extends State<ProdutoView> {
             children: [
               Card(
                 elevation: 2,
+                color: Colors.white,
+                clipBehavior: Clip.antiAlias,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                   side: BorderSide(color: Colors.red[900]!, width: 2),
                 ),
                 child: SizedBox(
                   height: 200,
-                  child: Center(
-                    child: Icon(Icons.brush, size: 96, color: Colors.red[900]),
+                  child: EsmalteImagem(
+                    imagemUrl: widget.esmalte.imagemUrl,
+                    iconSize: 96,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -158,7 +217,7 @@ class _ProdutoViewState extends State<ProdutoView> {
               ),
               const SizedBox(height: 12),
               Text(
-                'R\$ ${widget.esmalte.preco.toStringAsFixed(2)}',
+                'Preço estimado: R\$ ${widget.esmalte.preco.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
