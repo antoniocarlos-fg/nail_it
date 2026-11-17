@@ -14,6 +14,7 @@ class _LoginViewState extends State<LoginView> {
   final emailValido = RegExp(
     r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
   );
+  bool _carregando = false;
 
   @override
   void dispose() {
@@ -28,7 +29,9 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 
-  void _entrar() {
+  Future<void> _entrar() async {
+    if (_carregando) return;
+
     final email = emailController.text.trim();
     final senha = senhaController.text;
 
@@ -41,15 +44,17 @@ class _LoginViewState extends State<LoginView> {
       return;
     }
 
-    final usuario = UsuarioRepository.autenticar(email, senha);
+    setState(() => _carregando = true);
 
-    if (usuario == null) {
-      // Evita revelar qual credencial está incorreta.
-      _mostrarErro('Email ou senha incorretos.');
-      return;
+    try {
+      await UsuarioRepository.autenticar(email, senha);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, 'menu_principal');
+    } on UsuarioAuthException catch (e) {
+      if (mounted) _mostrarErro(e.mensagem);
+    } finally {
+      if (mounted) setState(() => _carregando = false);
     }
-
-    Navigator.pushReplacementNamed(context, 'menu_principal');
   }
 
   @override
@@ -186,8 +191,17 @@ class _LoginViewState extends State<LoginView> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           textStyle: const TextStyle(fontSize: 32),
                         ),
-                        onPressed: _entrar,
-                        child: const Text('Entrar'),
+                        onPressed: _carregando ? null : _entrar,
+                        child: _carregando
+                            ? const SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
+                            : const Text('Entrar'),
                       ),
                       const SizedBox(height: 16),
                     ],

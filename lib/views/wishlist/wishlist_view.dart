@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:nail_it/models/esmalte.dart';
 import 'package:nail_it/providers/wishlist_provider.dart';
+import 'package:nail_it/repositories/usuario_repository.dart';
 import 'package:nail_it/views/produto/produto_view.dart';
 
 class WishlistView extends StatefulWidget {
@@ -24,16 +27,7 @@ class _WishlistViewState extends State<WishlistView> {
   Widget build(BuildContext context) {
     const double alturaCabecalho = 180;
 
-    final provider = context.watch<WishlistProvider>();
-    final minhaWishlist = provider.wishlist;
-
-    final resultadosFiltrados = minhaWishlist.where((esmalte) {
-      final nome = esmalte.nome.toLowerCase();
-      final marca = esmalte.marca.toLowerCase();
-      final busca = _termoBusca.toLowerCase();
-
-      return nome.contains(busca) || marca.contains(busca);
-    }).toList();
+    final provider = context.read<WishlistProvider>();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade200,
@@ -42,63 +36,125 @@ class _WishlistViewState extends State<WishlistView> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: resultadosFiltrados.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 180),
-                      child: Center(
-                        child: Text(
-                          _termoBusca.isEmpty
-                              ? 'Sua lista de desejos está vazia.\nAdicione esmaltes através da aba Pesquisar!'
-                              : 'Nenhum esmalte encontrado na sua wishlist.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        alturaCabecalho,
-                        16,
-                        110,
-                      ),
-                      itemCount: resultadosFiltrados.length,
-                      itemBuilder: (context, index) {
-                        final esmalte = resultadosFiltrados[index];
+              child: ValueListenableBuilder(
+                valueListenable: UsuarioRepository.usuarioAtual,
+                builder: (context, usuario, _) {
+                  final stream = provider.streamDoUsuario();
+                  if (stream == null) {
+                    return const SizedBox.shrink();
+                  }
 
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            side: BorderSide(
-                              color: Colors.red[900]!,
-                              width: 1.5,
+                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: stream,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 180),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 180),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Erro ao carregar sua wishlist.',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red[900],
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: () => setState(() {}),
+                                  child: const Text('Tentar novamente'),
+                                ),
+                              ],
                             ),
                           ),
-                          child: ListTile(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ProdutoView(esmalte: esmalte),
-                                ),
-                              );
-                            },
-                            leading: Icon(
-                              Icons.brush,
-                              color: Colors.red[900],
-                              size: 36,
-                            ),
-                            title: Text(
-                              esmalte.nome,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                        );
+                      }
+
+                      final docs = snapshot.data?.docs ?? [];
+                      final minhaWishlist = docs
+                          .map((doc) => Esmalte.fromMap(doc.id, doc.data()))
+                          .toList();
+
+                      final resultadosFiltrados = minhaWishlist.where((esmalte) {
+                        final nome = esmalte.nome.toLowerCase();
+                        final marca = esmalte.marca.toLowerCase();
+                        final busca = _termoBusca.toLowerCase();
+
+                        return nome.contains(busca) || marca.contains(busca);
+                      }).toList();
+
+                      if (resultadosFiltrados.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 180),
+                          child: Center(
+                            child: Text(
+                              _termoBusca.isEmpty
+                                  ? 'Sua lista de desejos está vazia.\nAdicione esmaltes através da aba Pesquisar!'
+                                  : 'Nenhum esmalte encontrado na sua wishlist.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
                               ),
                             ),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          alturaCabecalho,
+                          16,
+                          110,
+                        ),
+                        itemCount: resultadosFiltrados.length,
+                        itemBuilder: (context, index) {
+                          final esmalte = resultadosFiltrados[index];
+
+                          return Card(
+                            elevation: 2,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              side: BorderSide(
+                                color: Colors.red[900]!,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: ListTile(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProdutoView(esmalte: esmalte),
+                                  ),
+                                );
+                              },
+                              leading: Icon(
+                                Icons.brush,
+                                color: Colors.red[900],
+                                size: 36,
+                              ),
+                              title: Text(
+                                esmalte.nome,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             subtitle: Text(
                               '${esmalte.marca} • R\$ ${esmalte.preco.toStringAsFixed(2)}',
                             ),
@@ -107,25 +163,39 @@ class _WishlistViewState extends State<WishlistView> {
                                 Icons.remove_circle_outline,
                                 color: Colors.red,
                               ),
-                              onPressed: () {
-                                context.read<WishlistProvider>().remover(
-                                  esmalte,
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '${esmalte.nome} removido da wishlist.',
+                              onPressed: () async {
+                                try {
+                                  await context.read<WishlistProvider>().remover(
+                                    esmalte,
+                                  );
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${esmalte.nome} removido da wishlist.',
+                                      ),
+                                      backgroundColor: Colors.red[900],
+                                      behavior: SnackBarBehavior.floating,
                                     ),
-                                    backgroundColor: Colors.red[900],
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
+                                  );
+                                } catch (_) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Erro ao remover da wishlist.'),
+                                    ),
+                                  );
+                                }
                               },
                             ),
                           ),
                         );
                       },
-                    ),
+                    );
+                    },
+                  );
+                },
+              ),
             ),
 
             Positioned(

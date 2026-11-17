@@ -34,17 +34,28 @@ class _EstoqueDetalheViewState extends State<EstoqueDetalheView> {
               child: Text('Cancelar', style: TextStyle(color: Colors.grey[700])),
             ),
             TextButton(
-              onPressed: () {
-                context.read<EsmaltesProvider>().remover(widget.esmalte);
-                Navigator.pop(ctx); 
-                Navigator.pop(context); 
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${widget.esmalte.nome} removido do estoque.'),
-                    backgroundColor: Colors.red[900],
-                  ),
-                );
+              onPressed: () async {
+                try {
+                  await context.read<EsmaltesProvider>().remover(widget.esmalte);
+                  if (!ctx.mounted || !context.mounted) return;
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${widget.esmalte.nome} removido do estoque.'),
+                      backgroundColor: Colors.red[900],
+                    ),
+                  );
+                } catch (_) {
+                  if (!ctx.mounted || !context.mounted) return;
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Erro ao remover o esmalte do estoque.'),
+                    ),
+                  );
+                }
               },
               child: const Text('Remover', style: TextStyle(color: Colors.red)),
             ),
@@ -129,12 +140,34 @@ class _EstoqueDetalheViewState extends State<EstoqueDetalheView> {
                         child: Text(value),
                       );
                     }).toList(),
-                    onChanged: (String? novoValor) {
-                      if (novoValor != null) {
+                    onChanged: (String? novoValor) async {
+                      if (novoValor != null && novoValor != _statusAtual) {
+                        final statusAnterior = _statusAtual;
                         setState(() {
                           _statusAtual = novoValor;
                         });
-                        context.read<EsmaltesProvider>().alterarStatus(widget.esmalte, novoValor);
+                        try {
+                          await context
+                              .read<EsmaltesProvider>()
+                              .alterarStatus(widget.esmalte, novoValor);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Status atualizado para "$novoValor".'),
+                              backgroundColor: Colors.green[700],
+                            ),
+                          );
+                        } catch (_) {
+                          if (!mounted) return;
+                          setState(() {
+                            _statusAtual = statusAnterior;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Erro ao atualizar o status.'),
+                            ),
+                          );
+                        }
                       }
                     },
                   ),

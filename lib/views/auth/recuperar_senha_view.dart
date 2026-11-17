@@ -13,6 +13,7 @@ class _RecuperarSenhaViewState extends State<RecuperarSenhaView> {
   final emailValido = RegExp(
     r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
   );
+  bool _carregando = false;
 
   @override
   void dispose() {
@@ -20,23 +21,44 @@ class _RecuperarSenhaViewState extends State<RecuperarSenhaView> {
     super.dispose();
   }
 
-  void _verificarConta() {
+  void _mostrarMensagem(String mensagem, {bool sucesso = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: sucesso ? Colors.green[700] : null,
+        behavior: sucesso ? SnackBarBehavior.floating : SnackBarBehavior.fixed,
+      ),
+    );
+  }
+
+  Future<void> _verificarConta() async {
+    if (_carregando) return;
+
     final email = emailController.text.trim();
-    String mensagem;
 
     if (email.isEmpty) {
-      mensagem = 'Informe o e-mail cadastrado.';
-    } else if (!emailValido.hasMatch(email)) {
-      mensagem = 'Informe um e-mail válido.';
-    } else if (!UsuarioRepository.emailExiste(email)) {
-      mensagem = 'Não encontramos uma conta cadastrada com esse e-mail.';
-    } else {
-      mensagem = 'Conta encontrada, no entanto, a função ainda está em desenvolvimento.';
+      _mostrarMensagem('Informe o e-mail cadastrado.');
+      return;
+    }
+    if (!emailValido.hasMatch(email)) {
+      _mostrarMensagem('Informe um e-mail válido.');
+      return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensagem)),
-    );
+    setState(() => _carregando = true);
+
+    try {
+      await UsuarioRepository.recuperarSenha(email);
+      if (!mounted) return;
+      _mostrarMensagem(
+        'Se houver uma conta com este e-mail, enviaremos as instruções de recuperação.',
+        sucesso: true,
+      );
+    } on UsuarioAuthException catch (e) {
+      if (mounted) _mostrarMensagem(e.mensagem);
+    } finally {
+      if (mounted) setState(() => _carregando = false);
+    }
   }
 
   @override
@@ -145,8 +167,17 @@ class _RecuperarSenhaViewState extends State<RecuperarSenhaView> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               textStyle: const TextStyle(fontSize: 32),
                             ),
-                            onPressed: _verificarConta,
-                            child: const Text('Solicitar\nrecuperação', textAlign: TextAlign.center),
+                            onPressed: _carregando ? null : _verificarConta,
+                            child: _carregando
+                                ? const SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 3,
+                                    ),
+                                  )
+                                : const Text('Solicitar\nrecuperação', textAlign: TextAlign.center),
                           ),
                         ],
                       ),

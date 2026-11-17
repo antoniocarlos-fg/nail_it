@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nail_it/repositories/usuario_repository.dart';
-import 'package:nail_it/models/usuario.dart';
 
 /// Formata o telefone enquanto o usuário digita.
 class TelefoneFormatter extends TextInputFormatter {
@@ -47,6 +46,7 @@ class _CadastroUsuarioViewState extends State<CadastroUsuarioView> {
   final emailValido = RegExp(
     r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
   );
+  bool _carregando = false;
 
   @override
   void dispose() {
@@ -64,7 +64,9 @@ class _CadastroUsuarioViewState extends State<CadastroUsuarioView> {
     );
   }
 
-  void _cadastrar() {
+  Future<void> _cadastrar() async {
+    if (_carregando) return;
+
     final nome = userController.text.trim();
     final email = emailController.text.trim();
     final telefone = telefoneController.text.replaceAll(RegExp(r'\D'), '');
@@ -77,6 +79,12 @@ class _CadastroUsuarioViewState extends State<CadastroUsuarioView> {
       _mostrarErro('É necessário preencher todos os campos para efetuar o cadastro.');
       return;
     }
+    if (nome.length < UsuarioRepository.nomeMinimoCaracteres) {
+      _mostrarErro(
+        'O nome deve ter pelo menos ${UsuarioRepository.nomeMinimoCaracteres} caracteres.',
+      );
+      return;
+    }
     if (!emailValido.hasMatch(email)) {
       _mostrarErro('Email inválido.');
       return;
@@ -86,28 +94,39 @@ class _CadastroUsuarioViewState extends State<CadastroUsuarioView> {
       _mostrarErro('Telefone inválido. Informe o DDD e o número.');
       return;
     }
+    if (senha.length < 6) {
+      _mostrarErro('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
     if (senha != confirmSenhaController.text) {
       _mostrarErro('As senhas não são iguais.');
       return;
     }
 
-    final cadastrado = UsuarioRepository.cadastrar(
-      Usuario(nome: nome, email: email, telefone: telefone, senha: senha),
-    );
+    setState(() => _carregando = true);
 
-    if (!cadastrado) {
-      _mostrarErro('Já existe uma conta com este email.');
-      return;
+    try {
+      await UsuarioRepository.cadastrar(
+        nome: nome,
+        email: email,
+        telefone: telefone,
+        senha: senha,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Cadastro feito com sucesso!'),
+          backgroundColor: Colors.green[700],
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.pushReplacementNamed(context, 'menu_principal');
+    } on UsuarioAuthException catch (e) {
+      if (mounted) _mostrarErro(e.mensagem);
+    } finally {
+      if (mounted) setState(() => _carregando = false);
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Cadastro feito com sucesso!'),
-        backgroundColor: Colors.green[700],
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    Navigator.pushReplacementNamed(context, 'menu_principal');
   }
 
   @override
@@ -276,8 +295,17 @@ class _CadastroUsuarioViewState extends State<CadastroUsuarioView> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       textStyle: const TextStyle(fontSize: 32),
                     ),
-                    onPressed: _cadastrar,
-                    child: const Text('Efetuar cadastro'),
+                    onPressed: _carregando ? null : _cadastrar,
+                    child: _carregando
+                        ? const SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                          )
+                        : const Text('Efetuar cadastro'),
                   ),
                 ],
               )

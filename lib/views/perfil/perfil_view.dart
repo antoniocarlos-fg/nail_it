@@ -36,8 +36,9 @@ class _PerfilViewState extends State<PerfilView> {
     );
   }
 
-  void _sair() {
-    UsuarioRepository.sair();
+  Future<void> _sair() async {
+    await UsuarioRepository.sair();
+    if (!mounted) return;
     // Impede voltar à área autenticada pelo botão voltar.
     Navigator.pushNamedAndRemoveUntil(context, 'login', (route) => false);
   }

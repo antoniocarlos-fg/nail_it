@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:nail_it/models/esmalte.dart';
 import 'package:nail_it/providers/esmaltes_provider.dart';
 import 'package:nail_it/repositories/usuario_repository.dart';
 import 'package:nail_it/views/estoque/estoque_detalhe_view.dart';
@@ -23,16 +25,7 @@ class _InicioViewState extends State<InicioView> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<EsmaltesProvider>();
-    final meusEsmaltes = provider.esmaltes;
-
-    final resultadosFiltrados = meusEsmaltes.where((esmalte) {
-      final nome = esmalte.nome.toLowerCase();
-      final marca = esmalte.marca.toLowerCase();
-      final busca = _termoBusca.toLowerCase();
-      
-      return nome.contains(busca) || marca.contains(busca);
-    }).toList();
+    final provider = context.read<EsmaltesProvider>();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade200, 
@@ -41,85 +34,151 @@ class _InicioViewState extends State<InicioView> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: resultadosFiltrados.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 180),
-                      child: Center(
-                        child: Text(
-                          _termoBusca.isEmpty 
-                              ? 'Seu estoque está vazio.\nAdicione esmaltes através da aba Pesquisar!'
-                              : 'Nenhum esmalte encontrado no seu estoque.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 180, 16, 110), 
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.8,
-                      ),
-                      itemCount: resultadosFiltrados.length,
-                      itemBuilder: (context, index) {
-                        final esmalte = resultadosFiltrados[index];
+              child: ValueListenableBuilder(
+                valueListenable: UsuarioRepository.usuarioAtual,
+                builder: (context, usuario, _) {
+                  final stream = provider.streamDoUsuario();
+                  if (stream == null) {
+                    return const SizedBox.shrink();
+                  }
 
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EstoqueDetalheView(esmalte: esmalte),
-                              ),
-                            );
-                          },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: Card(
-                                  elevation: 2,
-                                  clipBehavior: Clip.antiAlias,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                    side: BorderSide(
-                                      color: Colors.red[900]!,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.brush,
-                                      size: 48,
-                                      color: Colors.red[900],
-                                    ),
+                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: stream,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 180),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 180),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Erro ao carregar seu estoque.',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[700],
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                esmalte.nome,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red[900],
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: () => setState(() {}),
+                                  child: const Text('Tentar novamente'),
                                 ),
-                              ),
-                              Text(
-                                esmalte.status,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
-                      },
-                    ),
+                      }
+
+                      final docs = snapshot.data?.docs ?? [];
+                      final meusEsmaltes = docs
+                          .map((doc) => Esmalte.fromMap(doc.id, doc.data()))
+                          .toList();
+
+                      final resultadosFiltrados = meusEsmaltes.where((esmalte) {
+                        final nome = esmalte.nome.toLowerCase();
+                        final marca = esmalte.marca.toLowerCase();
+                        final busca = _termoBusca.toLowerCase();
+
+                        return nome.contains(busca) || marca.contains(busca);
+                      }).toList();
+
+                      if (resultadosFiltrados.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 180),
+                          child: Center(
+                            child: Text(
+                              _termoBusca.isEmpty
+                                  ? 'Seu estoque está vazio.\nAdicione esmaltes através da aba Pesquisar!'
+                                  : 'Nenhum esmalte encontrado no seu estoque.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 180, 16, 110),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.8,
+                        ),
+                        itemCount: resultadosFiltrados.length,
+                        itemBuilder: (context, index) {
+                          final esmalte = resultadosFiltrados[index];
+
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EstoqueDetalheView(esmalte: esmalte),
+                                ),
+                              );
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: Card(
+                                    elevation: 2,
+                                    clipBehavior: Clip.antiAlias,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                      side: BorderSide(
+                                        color: Colors.red[900]!,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.brush,
+                                        size: 48,
+                                        color: Colors.red[900],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  esmalte.nome,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  esmalte.status,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
 
             Positioned(

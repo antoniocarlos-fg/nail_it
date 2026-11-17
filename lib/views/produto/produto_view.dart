@@ -4,12 +4,19 @@ import 'package:nail_it/models/esmalte.dart';
 import 'package:nail_it/providers/esmaltes_provider.dart';
 import 'package:nail_it/providers/wishlist_provider.dart';
 
-class ProdutoView extends StatelessWidget {
+class ProdutoView extends StatefulWidget {
   final Esmalte esmalte;
 
   const ProdutoView({super.key, required this.esmalte});
 
-  void _avisar(BuildContext context, String mensagem, {bool erro = false}) {
+  @override
+  State<ProdutoView> createState() => _ProdutoViewState();
+}
+
+class _ProdutoViewState extends State<ProdutoView> {
+  bool _salvando = false;
+
+  void _avisar(String mensagem, {bool erro = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensagem),
@@ -19,9 +26,95 @@ class ProdutoView extends StatelessWidget {
     );
   }
 
+  Future<void> _adicionarAoEstoque() async {
+    if (_salvando) return;
+    setState(() => _salvando = true);
+
+    final esmaltesProvider = context.read<EsmaltesProvider>();
+    final wishlistProvider = context.read<WishlistProvider>();
+
+    try {
+      await esmaltesProvider.adicionar(widget.esmalte);
+      if (!mounted) return;
+
+      _avisar('${widget.esmalte.nome} adicionado ao estoque!');
+
+      if (wishlistProvider.possui(widget.esmalte)) {
+        final desejaRemover = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Remover da wishlist?'),
+            content: const Text(
+              'Também deseja remover o esmalte da sua lista de desejos?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Não', style: TextStyle(color: Colors.grey[700])),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  'Sim, remover',
+                  style: TextStyle(color: Colors.red[900]),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (desejaRemover == true) {
+          await wishlistProvider.remover(widget.esmalte);
+          if (mounted) {
+            _avisar('${widget.esmalte.nome} removido da wishlist.', erro: true);
+          }
+        }
+      }
+
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        _avisar('Não foi possível adicionar ao estoque.', erro: true);
+      }
+    } finally {
+      if (mounted) setState(() => _salvando = false);
+    }
+  }
+
+  Future<void> _alternarWishlist(bool taNaWishlist) async {
+    if (_salvando) return;
+    setState(() => _salvando = true);
+
+    final wishlistProvider = context.read<WishlistProvider>();
+
+    try {
+      if (taNaWishlist) {
+        await wishlistProvider.remover(widget.esmalte);
+        if (mounted) {
+          _avisar('${widget.esmalte.nome} removido da wishlist', erro: true);
+        }
+      } else {
+        final adicionou = await wishlistProvider.adicionar(widget.esmalte);
+        if (mounted) {
+          if (adicionou) {
+            _avisar('${widget.esmalte.nome} adicionado à wishlist!');
+          } else {
+            _avisar('Este esmalte já está na sua wishlist.', erro: true);
+          }
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        _avisar('Erro ao atualizar sua wishlist.', erro: true);
+      }
+    } finally {
+      if (mounted) setState(() => _salvando = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final taNaWishlist = context.watch<WishlistProvider>().possui(esmalte);
+    final taNaWishlist = context.watch<WishlistProvider>().possui(widget.esmalte);
 
     return Scaffold(
       backgroundColor: Colors.grey.shade200,
@@ -51,7 +144,7 @@ class ProdutoView extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                esmalte.nome,
+                widget.esmalte.nome,
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
@@ -60,12 +153,12 @@ class ProdutoView extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                esmalte.marca,
+                widget.esmalte.marca,
                 style: TextStyle(fontSize: 16, color: Colors.grey[700]),
               ),
               const SizedBox(height: 12),
               Text(
-                'R\$ ${esmalte.preco.toStringAsFixed(2)}',
+                'R\$ ${widget.esmalte.preco.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -77,36 +170,40 @@ class ProdutoView extends StatelessWidget {
                   backgroundColor: Colors.red[900],
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                icon: const Icon(Icons.add),
+                icon: _salvando
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.add),
                 label: const Text('Adicionar ao estoque'),
-                onPressed: () {
-                  context.read<EsmaltesProvider>().adicionar(esmalte);
-                  _avisar(context, '${esmalte.nome} adicionado ao estoque!');
-                  Navigator.pop(context); 
-                },
+                onPressed: _salvando ? null : _adicionarAoEstoque,
               ),
               const SizedBox(height: 12),
-              
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: taNaWishlist ? Colors.grey[700] : Colors.red[900],
+                  foregroundColor:
+                      taNaWishlist ? Colors.grey[700] : Colors.red[900],
                   side: BorderSide(
-                    color: taNaWishlist ? Colors.grey[700]! : Colors.red[900]!, 
-                    width: 1.5
+                    color: taNaWishlist ? Colors.grey[700]! : Colors.red[900]!,
+                    width: 1.5,
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                icon: Icon(taNaWishlist ? Icons.favorite : Icons.favorite_border),
-                label: Text(taNaWishlist ? 'Remover da wishlist' : 'Adicionar à wishlist'),
-                onPressed: () {
-                  if (taNaWishlist) {
-                    context.read<WishlistProvider>().remover(esmalte);
-                    _avisar(context, '${esmalte.nome} removido da wishlist', erro: true);
-                  } else {
-                    context.read<WishlistProvider>().adicionar(esmalte);
-                    _avisar(context, '${esmalte.nome} adicionado à wishlist!');
-                  }
-                },
+                icon: Icon(
+                  taNaWishlist ? Icons.favorite : Icons.favorite_border,
+                ),
+                label: Text(
+                  taNaWishlist
+                      ? 'Remover da wishlist'
+                      : 'Adicionar à wishlist',
+                ),
+                onPressed:
+                    _salvando ? null : () => _alternarWishlist(taNaWishlist),
               ),
               const SizedBox(height: 48),
             ],

@@ -15,6 +15,7 @@ class _AlterarInformacoesViewState extends State<AlterarInformacoesView> {
   final senhaAtualController = TextEditingController();
   final novaSenhaController = TextEditingController();
   final confirmNovaSenhaController = TextEditingController();
+  bool _carregando = false;
 
   @override
   void dispose() {
@@ -53,7 +54,9 @@ class _AlterarInformacoesViewState extends State<AlterarInformacoesView> {
     );
   }
 
-  void _salvar() {
+  Future<void> _salvar() async {
+    if (_carregando) return;
+
     final nome = nomeController.text.trim();
     final senhaAtual = senhaAtualController.text;
     final novaSenha = novaSenhaController.text;
@@ -84,8 +87,8 @@ class _AlterarInformacoesViewState extends State<AlterarInformacoesView> {
         _mostrarErro('Para alterar a senha, preencha os três campos de senha.');
         return;
       }
-      if (!UsuarioRepository.senhaAtualConfere(senhaAtual)) {
-        _mostrarErro('A senha atual está incorreta.');
+      if (novaSenha.length < 6) {
+        _mostrarErro('A nova senha deve ter pelo menos 6 caracteres.');
         return;
       }
       if (novaSenha != confirmNovaSenha) {
@@ -94,19 +97,29 @@ class _AlterarInformacoesViewState extends State<AlterarInformacoesView> {
       }
     }
 
-    UsuarioRepository.atualizarPerfil(
-      nome: nome,
-      novaSenha: querTrocarSenha ? novaSenha : null,
-    );
+    setState(() => _carregando = true);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Informações atualizadas com sucesso!'),
-        backgroundColor: Colors.green[700],
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    Navigator.pop(context);
+    try {
+      await UsuarioRepository.atualizarPerfil(
+        nome: nome,
+        senhaAtual: querTrocarSenha ? senhaAtual : null,
+        novaSenha: querTrocarSenha ? novaSenha : null,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Informações atualizadas com sucesso!'),
+          backgroundColor: Colors.green[700],
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.pop(context);
+    } on UsuarioAuthException catch (e) {
+      if (mounted) _mostrarErro(e.mensagem);
+    } finally {
+      if (mounted) setState(() => _carregando = false);
+    }
   }
 
   @override
@@ -211,8 +224,17 @@ class _AlterarInformacoesViewState extends State<AlterarInformacoesView> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               textStyle: const TextStyle(fontSize: 28),
                             ),
-                            onPressed: _salvar,
-                            child: const Text('Salvar alterações'),
+                            onPressed: _carregando ? null : _salvar,
+                            child: _carregando
+                                ? const SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 3,
+                                    ),
+                                  )
+                                : const Text('Salvar alterações'),
                           ),
                         ],
                       ),

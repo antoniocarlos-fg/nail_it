@@ -1,66 +1,49 @@
-import 'dart:collection';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/esmalte.dart';
 import '../repositories/usuario_repository.dart';
 
 class EsmaltesProvider extends ChangeNotifier {
-  // Estoques separados por usuário, mantidos apenas durante a execução.
-  final Map<String, List<Esmalte>> _estoquesPorUsuario = {};
+  final CollectionReference<Map<String, dynamic>> _colecaoEstoque =
+      FirebaseFirestore.instance.collection('estoque');
 
-  EsmaltesProvider() {
-    UsuarioRepository.usuarioAtual.addListener(_aoAlterarUsuario);
+  String? get _uidAtual => UsuarioRepository.usuarioAtual.value?.uid;
+
+  /// Stream em tempo real dos esmaltes do usuário logado para uso com StreamBuilder.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? streamDoUsuario() {
+    final uid = _uidAtual;
+    if (uid == null) return null;
+
+    return _colecaoEstoque.where('uid', isEqualTo: uid).snapshots();
   }
 
-  void _aoAlterarUsuario() => notifyListeners();
+  /// Adiciona uma nova instância do esmalte ao estoque do usuário no Firestore.
+  /// Permite múltiplas instâncias do mesmo esmalte (ex.: frascos reserva).
+  Future<void> adicionar(Esmalte esmalte) async {
+    final uid = _uidAtual;
+    if (uid == null) {
+      throw Exception('Usuário não autenticado.');
+    }
 
-  List<Esmalte>? get _estoqueAtual {
-    final email = UsuarioRepository.usuarioAtual.value?.email;
-    if (email == null) return null;
-
-    return _estoquesPorUsuario.putIfAbsent(
-      email.trim().toLowerCase(),
-      () => <Esmalte>[],
-    );
+    final copia = esmalte.copiar();
+    await _colecaoEstoque.add(copia.toMapEstoque(uid));
   }
 
-  // Exposição somente leitura; alterações passam pelos métodos abaixo.
-  UnmodifiableListView<Esmalte> get esmaltes =>
-      UnmodifiableListView(_estoqueAtual ?? const <Esmalte>[]);
+  Future<void> remover(Esmalte esmalte) async {
+    if (esmalte.id == null) {
+      throw Exception('Identificador do esmalte não encontrado.');
+    }
 
-  bool possui(Esmalte esmalte) {
-    return (_estoqueAtual ?? const <Esmalte>[]).any(
-      (e) => e.nome == esmalte.nome && e.marca == esmalte.marca,
-    );
+    await _colecaoEstoque.doc(esmalte.id).delete();
   }
 
-  /// Cria uma cópia independente do item do catálogo para o estoque.
-  void adicionar(Esmalte esmalte) {
-    final estoque = _estoqueAtual;
-    if (estoque == null) return;
+  Future<void> alterarStatus(Esmalte esmalte, String novoStatus) async {
+    if (esmalte.id == null) {
+      throw Exception('Identificador do esmalte não encontrado.');
+    }
 
-    estoque.add(esmalte.copiar());
-    notifyListeners();
-  }
-
-  void remover(Esmalte esmalte) {
-    final estoque = _estoqueAtual;
-    if (estoque == null) return;
-
-    esmalte.status = "Novo";
-    estoque.remove(esmalte);
-    notifyListeners();
-  }
-
-  void alterarStatus(Esmalte esmalte, String novoStatus) {
-    if (_estoqueAtual == null) return;
-
+    await _colecaoEstoque.doc(esmalte.id).update({'status': novoStatus});
     esmalte.status = novoStatus;
     notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    UsuarioRepository.usuarioAtual.removeListener(_aoAlterarUsuario);
-    super.dispose();
   }
 }
